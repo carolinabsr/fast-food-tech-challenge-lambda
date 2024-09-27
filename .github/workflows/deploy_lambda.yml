@@ -1,0 +1,56 @@
+name: Deploy Lambda Function
+
+on:
+  push:
+    branches:
+      - main # Ou a branch que você deseja monitorar
+
+jobs:
+  deploy:
+    name: Build and Deploy Lambda
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "14"
+
+      - name: Install Dependencies
+        run: |
+          cd lambda_auth_postgres
+          npm install
+
+      - name: Zip Lambda Function
+        run: |
+          cd lambda_auth_postgres
+          zip -r ../lambda_auth_postgres.zip .
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: lambda_package
+          path: lambda_auth_postgres.zip
+
+      - name: Deploy to AWS Lambda
+        uses: appleboy/lambda-action@master
+        with:
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws_region: "us-east-1"
+          function_name: "auth_function"
+          zip_file: "lambda_auth_postgres.zip"
+          publish: true
+          runtime: "nodejs18.x"
+          timeout: 15
+          environment: |
+            DB_HOST=${{ secrets.DB_HOST }}
+            DB_NAME=${{ secrets.DB_NAME }}
+            DB_USER=${{ secrets.DB_USER }}
+            DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+          subnets: ${{ secrets.LAMBDA_SUBNET_IDS }}
+          securitygroups: ${{ secrets.LAMBDA_SECURITY_GROUP_IDS }}
